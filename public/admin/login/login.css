@@ -1,0 +1,56 @@
+@import url('https://fonts.googleapis.com/css2?family=Asap&display=swap');
+
+body {
+  font-family: 'Asap', sans-serif;
+}
+
+.logistics-bg {
+  background: linear-gradient(to right, #456991, #028090);
+  animation: bgMove 10s infinite alternate;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 400px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  border-radius: 1rem;
+  background-color: #fff;
+}
+
+.login-card:hover {
+  transform: scale(1.02);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+}
+
+.input-group-text {
+  border: none;
+  background-color: #f8f9fa;
+}
+
+input.form-control {
+  border: none;
+  background-color: #f8f9fa;
+  transition: background-color 0.3s ease;
+}
+
+input.form-control:focus {
+  background-color: #fff;
+  box-shadow: none;
+}
+
+button.btn {
+  transition: background-color 0.3s ease;
+}
+
+button.btn:hover {
+  background-color: #03657c;
+}
+
+@keyframes bgMove {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 100% 50%;
+  }
+}
