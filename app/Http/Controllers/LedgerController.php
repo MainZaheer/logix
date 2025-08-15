@@ -29,7 +29,6 @@ class LedgerController extends Controller
     public function index(Request $request)
     {
 
-
         $business_id = $request->session()->get('user.business_id');
         $type = $request->type;
         $type_id = $request->type_id;
@@ -40,6 +39,7 @@ class LedgerController extends Controller
             if (!$type && !$type_id) {
                 return DataTables::of(collect([]))->make(true);
             }
+
 
 
             $data = Shipping::with(
@@ -63,6 +63,37 @@ class LedgerController extends Controller
             return DataTables::of($filtered)
 
                 ->addColumn('action', function ($row) use ($ledger, $type, $type_id) {
+                    $type_ids = is_array($type_id) ? $type_id : [$type_id];
+                    $type_ids = collect($type_ids)
+                        ->filter(fn ($v) => $v !== null && $v !== '')
+                        ->map(fn ($v) => (int) $v)
+                        ->values()
+                        ->all();
+
+
+                        $single_type_id = null;
+                        foreach ($type_ids as $id) {
+                            if (
+                                ($type === 'customer'        && $row->customer_id == $id) ||
+                                ($type === 'broker'          && $row->details->where('broker_id', $id)->isNotEmpty()) ||
+                                ($type === 'labour'          && $row->details->where('labour_charges_id', $id)->isNotEmpty()) ||
+                                ($type === 'local'           && $row->details->where('local_charges_id', $id)->isNotEmpty()) ||
+                                ($type === 'lifter'          && $row->details->where('lifter_charges_id', $id)->isNotEmpty()) ||
+                                ($type === 'other'           && $row->details->where('other_charges_id', $id)->isNotEmpty()) ||
+                                ($type === 'party_commission'&& $row->details->where('party_commission_charges_id', $id)->isNotEmpty()) ||
+                                ($type === 'tracker'         && $row->details->where('tracker_charges_id', $id)->isNotEmpty()) ||
+                                ($type === 'gate_pass'       && $row->gate_pass_id == $id) ||
+                                ($type === 'clearing_agent'  && $row->clearing_agent_id == $id)
+                            ) {
+                                $single_type_id = $id;
+                                break; // Found matching ID, stop loop
+                            }
+                        }
+
+                        // If nothing matches, just take first (fallback)
+                        if ($single_type_id === null && !empty($type_ids)) {
+                            $single_type_id = $type_ids[0];
+                        }
 
                     $html = '
                     <div class="btn-group">
@@ -75,11 +106,12 @@ class LedgerController extends Controller
                             <i class="fa fa-eye text-primary mr-1"></i> View </a>';
 
                     if ($ledger == 'payable') {
+
                         $html .= '
                              <a class="dropdown-item paybale-ledger" href="#" data-toggle="modal" data-target="#payable-ledger-modal"
                              data-id="' . $row->id . '"
                              data-type="' . getPartyType($type) . '"
-                             data-type-id="' . $type_id . '"
+                             data-type-id="' . $single_type_id . '"
                              data-job-no="' . $row->job_no . '"
                              data-date="' . $row->date . '"
                              data-party-name="' . getPartyName($row, $type) . '"
@@ -91,12 +123,11 @@ class LedgerController extends Controller
                             </a>';
                     } else if ($ledger == 'receivable') {
 
-
                         $html .= '
                              <a class="dropdown-item receivable-ledger" href="#" data-toggle="modal" data-target="#payable-ledger-modal"
                              data-id="' . $row->id . '"
                              data-type="' . getPartyType($type) . '"
-                             data-type-id="' . $type_id . '"
+                             data-type-id="' . $single_type_id . '"
                              data-job-no="' . $row->job_no . '"
                              data-date="' . $row->date . '"
                              data-party-name="' . getPartyName($row, $type) . '"
@@ -139,65 +170,89 @@ class LedgerController extends Controller
                     return getTotalAmount($row, $type, $type_id, $details);
                 })
 
-                ->addColumn('status', function ($row) use ($type, $type_id , $ledger) {
+                ->addColumn('status', function ($row) use ($type, $type_id, $ledger) {
 
+                    // Normalize type_id to array
+                    $type_ids = is_array($type_id) ? $type_id : [$type_id];
+                    $type_ids = collect($type_ids)
+                        ->filter(fn ($v) => $v !== null && $v !== '')
+                        ->map(fn ($v) => (int) $v)
+                        ->values()
+                        ->all();
 
-                    if($ledger == 'payable') {
-                        $paid = DB::table('transactions')
-                        ->where('payment_type', 'debit')
-                        ->where('model_id', $type_id)
-                        ->where('model_type', getModalNames($type))
-                        ->where('shipping_id', $row->id)
-                        ->sum('amount');
-
-                    }elseif($ledger == 'receivable') {
-                        $paid = DB::table('transactions')
-                        ->where('payment_type', 'credit')
-                        ->where('model_id', $type_id)
-                        ->where('model_type', getModalNames($type))
-                        ->where('shipping_id', $row->id)
-                        ->sum('amount');
+                    if (empty($type_ids)) {
+                        return '0.00';
                     }
 
-                    $total = 0;
-
-                    if ($type === 'customer') {
-                        $total = $row->total_invoice_amount ?? 0;
-                    } elseif ($type === 'broker') {
-                        $total = $row->details->where('broker_id', $type_id)->sum('booker_vhicle_freight_amount') +
-                            $row->details->where('broker_id', $type_id)->sum('booker_mt_charges_amount');
-                    } elseif ($type === 'gate_pass') {
-
-                        if ($row->gate_pass_id == $type_id) {
-
-                            $total = $row->details->sum('gate_pass_amount');
-                        } else {
-                            $total = 0;
-                        }
-                    } elseif ($type === 'clearing_agent') {
-
-                        if ($row->clearing_agent_id == $type_id) {
-                            $total = $row->details->sum('clearing_agent_amount');
-                        } else {
-                            $total = 0;
-                        }
-                    } elseif ($type === 'labour') {
-                        $total = $row->details->where('labour_charges_id', $type_id)->sum('labour_charges_amount');
-                    } elseif ($type === 'local') {
-                        $total = $row->details->where('local_charges_id', $type_id)->sum('local_charges_amount');
-                    } elseif ($type === 'lifter') {
-                        $total = $row->details->where('lifter_charges_id', $type_id)->sum('lifter_charges_amount');
-                    } elseif ($type === 'other') {
-                        $total = $row->details->where('other_charges_id', $type_id)->sum('other_charges_amount');
-                    } elseif ($type === 'party_commission') {
-                        $total = $row->details->where('party_commission_charges_id', $type_id)->sum('party_commision_charges_amount');
-                    } elseif ($type === 'tracker') {
-                        $total = $row->details->where('tracker_charges_id', $type_id)->sum('tracker_charges_amount');
+                    // Calculate paid amount based on ledger type
+                    if ($ledger === 'payable') {
+                        $paid = DB::table('transactions')
+                            ->where('payment_type', 'debit')
+                            ->whereIn('model_id', $type_ids)
+                            ->where('model_type', getModalNames($type))
+                            ->where('shipping_id', $row->id)
+                            ->sum('amount');
+                    } elseif ($ledger === 'receivable') {
+                        $paid = DB::table('transactions')
+                            ->where('payment_type', 'credit')
+                            ->whereIn('model_id', $type_ids)
+                            ->where('model_type', getModalNames($type))
+                            ->where('shipping_id', $row->id)
+                            ->sum('amount');
+                    } else {
+                        $paid = 0;
                     }
 
+                    // Calculate total amount for all selected type_ids
+                    $total = match ($type) {
+                        'customer' => in_array($row->customer_id, $type_ids) ? ($row->total_invoice_amount ?? 0) : 0,
+
+                        'broker' => $row->details
+                            ->whereIn('broker_id', $type_ids)
+                            ->sum('booker_vhicle_freight_amount')
+                            + $row->details
+                            ->whereIn('broker_id', $type_ids)
+                            ->sum('booker_mt_charges_amount'),
+
+                        'gate_pass' => in_array($row->gate_pass_id, $type_ids)
+                            ? $row->details->sum('gate_pass_amount')
+                            : 0,
+
+                        'clearing_agent' => in_array($row->clearing_agent_id, $type_ids)
+                            ? $row->details->sum('clearing_agent_amount')
+                            : 0,
+
+                        'labour' => $row->details
+                            ->whereIn('labour_charges_id', $type_ids)
+                            ->sum('labour_charges_amount'),
+
+                        'local' => $row->details
+                            ->whereIn('local_charges_id', $type_ids)
+                            ->sum('local_charges_amount'),
+
+                        'lifter' => $row->details
+                            ->whereIn('lifter_charges_id', $type_ids)
+                            ->sum('lifter_charges_amount'),
+
+                        'other' => $row->details
+                            ->whereIn('other_charges_id', $type_ids)
+                            ->sum('other_charges_amount'),
+
+                        'party_commission' => $row->details
+                            ->whereIn('party_commission_charges_id', $type_ids)
+                            ->sum('party_commision_charges_amount'),
+
+                        'tracker' => $row->details
+                            ->whereIn('tracker_charges_id', $type_ids)
+                            ->sum('tracker_charges_amount'),
+
+                        default => 0,
+                    };
+
+                    // Determine payment status
                     if ($paid > $total) {
                         return '<span class="badge badge-danger">OverDue</span>';
-                    } elseif ($paid == $total) {
+                    } elseif ($paid == $total && $total > 0) {
                         return '<span class="badge badge-success">Paid</span>';
                     } elseif ($paid > 0 && $paid < $total) {
                         return '<span class="badge badge-info">Partial</span>';
@@ -207,31 +262,45 @@ class LedgerController extends Controller
                 })
 
 
-                ->addColumn('paid_amount', function ($row) use ($type, $type_id , $ledger) {
 
-                    if($ledger == 'payable') {
-                        $paid = DB::table('transactions')
-                        ->where('payment_type', 'debit')
-                        ->where('model_id', $type_id)
-                        ->where('model_type', getModalNames($type))
-                        ->where('shipping_id', $row->id)
-                        ->sum('amount');
+                ->addColumn('paid_amount', function ($row) use ($type, $type_id, $ledger) {
 
-                    }elseif($ledger == 'receivable') {
-                        $paid = DB::table('transactions')
-                        ->where('payment_type', 'credit')
-                        ->where('model_id', $type_id)
-                        ->where('model_type', getModalNames($type))
-                        ->where('shipping_id', $row->id)
-                        ->sum('amount');
-                    }else{
-                        $paid = 0;
-                    }
+                        // Normalize type_id to array
+                        $type_ids = is_array($type_id) ? $type_id : [$type_id];
+                        $type_ids = collect($type_ids)
+                            ->filter(fn ($v) => $v !== null && $v !== '')
+                            ->map(fn ($v) => (int) $v)
+                            ->values()
+                            ->all();
 
-                    return 'Rs. ' . number_format($paid, 2);
+                        if (empty($type_ids)) {
+                            return 'Rs. 0.00';
+                        }
 
+                        // Calculate paid amount based on ledger type
+                        if ($ledger === 'payable') {
+                            $paid = DB::table('transactions')
+                                ->where('payment_type', 'debit')
+                                ->whereIn('model_id', $type_ids)
+                                ->where('model_type', getModalNames($type))
+                                ->where('shipping_id', $row->id)
+                                ->sum('amount');
 
-                })
+                        } elseif ($ledger === 'receivable') {
+                            $paid = DB::table('transactions')
+                                ->where('payment_type', 'credit')
+                                ->whereIn('model_id', $type_ids)
+                                ->where('model_type', getModalNames($type))
+                                ->where('shipping_id', $row->id)
+                                ->sum('amount');
+
+                        } else {
+                            $paid = 0;
+                        }
+
+                        return 'Rs. ' . number_format($paid, 2);
+                    })
+
 
                 ->rawColumns(['job_no', 'date', 'bilty_container_number', 'type', 'party_name', 'total_amount', 'status', 'paid_amount', 'action'])
 

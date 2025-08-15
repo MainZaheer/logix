@@ -27,8 +27,8 @@
                     </div>
                     <div class="col-md-3">
                         <label>Name <span class="text-danger">*</span></label>
-                        <select id="type_id_selector" class="form-control select2">
-                            <option value="">Select Name</option>
+                        <select id="type_id_selector" class="form-control select2"  multiple>
+
                         </select>
                     </div>
                 </div>
@@ -294,29 +294,56 @@
             }
         });
 
-        $('#type_selector').change(function() {
-            let selectedType = $(this).val();
-            $('#type_id_selector').empty().append(`<option value="">Loading...</option>`);
 
-            if (selectedType) {
-                $.get("{{ route('ledger.type.names') }}", {
-                    type: selectedType
-                }, function(data) {
-                    $('#type_id_selector').empty().append(
-                        `<option value="">Select Name</option>`);
-                    $.each(data, function(i, item) {
-                        $('#type_id_selector').append(
-                            `<option value="${item.id}">${item.name}</option>`);
-                    });
-                });
-            } else {
-                $('#type_id_selector').html(`<option value="">Select Type First</option>`);
+        function initMultiSelect() {
+        $('#type_id_selector').select2({
+            placeholder: "Select Name",
+            closeOnSelect: true,
+            allowClear: true
+        });
+
+        // Handle Select All
+        $('#type_id_selector').on('select2:select', function (e) {
+            if (e.params.data.id === "all") {
+                let allValues = $("#type_id_selector option:not([value='all'])").map(function () {
+                    return $(this).val();
+                }).get();
+                $('#type_id_selector').val(allValues).trigger('change');
             }
         });
 
-        $('#type_id_selector').change(function() {
-            table.ajax.reload();
+        $('#type_id_selector').on('select2:unselect', function (e) {
+            if (e.params.data.id === "all") {
+                $('#type_id_selector').val(null).trigger('change');
+            }
         });
+    }
+
+    // Load names when type changes
+    $('#type_selector').change(function () {
+        let selectedType = $(this).val();
+        $('#type_id_selector').empty().append(`<option>Loading...</option>`);
+
+        if (selectedType) {
+            $.get("{{ route('ledger.type.names') }}", { type: selectedType }, function (data) {
+                $('#type_id_selector').empty();
+                $('#type_id_selector').append(`<option value="all">Select All</option>`);
+                $.each(data, function (i, item) {
+                    $('#type_id_selector').append(
+                        `<option value="${item.id}">${item.name}</option>`
+                    );
+                });
+                initMultiSelect();
+            });
+        } else {
+            $('#type_id_selector').html(`<option value="">Select Type First</option>`);
+        }
+    });
+
+    // Reload table when selection changes
+    $('#type_id_selector').change(function () {
+        table.ajax.reload();
+    });
     });
 
 

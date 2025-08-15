@@ -98,51 +98,82 @@ if (!function_exists('getModalNames')) {
 if (!function_exists('getTotalAmount')) {
     function getTotalAmount($row, $type, $type_id, $details)
     {
+        // Normalize type_id to array of integers
+        $type_ids = is_array($type_id) ? $type_id : [$type_id];
+        $type_ids = collect($type_ids)
+            ->filter(fn ($v) => $v !== null && $v !== '')
+            ->map(fn ($v) => (int) $v)
+            ->values()
+            ->all();
+
+        if (empty($type_ids)) {
+            return 'Rs. 0.00';
+        }
+
         switch ($type) {
             case 'broker':
-                $filtered = $details->where('broker_id', $type_id);
-                return 'Rs. ' . number_format($filtered->sum('booker_vhicle_freight_amount') + $filtered->sum('booker_mt_charges_amount'), 2);
+                $filtered = $details->whereIn('broker_id', $type_ids);
+                return 'Rs. ' . number_format(
+                    $filtered->sum('booker_vhicle_freight_amount') + $filtered->sum('booker_mt_charges_amount'),
+                    2
+                );
 
             case 'labour':
-
-                return 'Rs. ' . number_format($details->where('labour_charges_id', $type_id)->sum('labour_charges_amount'), 2);
+                return 'Rs. ' . number_format(
+                    $details->whereIn('labour_charges_id', $type_ids)->sum('labour_charges_amount'),
+                    2
+                );
 
             case 'local':
-                return 'Rs. ' . number_format($details->where('local_charges_id', $type_id)->sum('local_charges_amount'), 2);
+                return 'Rs. ' . number_format(
+                    $details->whereIn('local_charges_id', $type_ids)->sum('local_charges_amount'),
+                    2
+                );
 
             case 'lifter':
-                return 'Rs. ' . number_format($details->where('lifter_charges_id', $type_id)->sum('lifter_charges_amount'), 2);
+                return 'Rs. ' . number_format(
+                    $details->whereIn('lifter_charges_id', $type_ids)->sum('lifter_charges_amount'),
+                    2
+                );
 
             case 'other':
-                return 'Rs. ' . number_format($details->where('other_charges_id', $type_id)->sum('other_charges_amount'), 2);
+                return 'Rs. ' . number_format(
+                    $details->whereIn('other_charges_id', $type_ids)->sum('other_charges_amount'),
+                    2
+                );
 
             case 'party_commission':
-                return 'Rs. ' . number_format($details->where('party_commission_charges_id', $type_id)->sum('party_commision_charges_amount'), 2);
+                return 'Rs. ' . number_format(
+                    $details->whereIn('party_commission_charges_id', $type_ids)->sum('party_commision_charges_amount'),
+                    2
+                );
 
             case 'tracker':
-                return 'Rs. ' . number_format($details->where('tracker_charges_id', $type_id)->sum('tracker_charges_amount'), 2);
+                return 'Rs. ' . number_format(
+                    $details->whereIn('tracker_charges_id', $type_ids)->sum('tracker_charges_amount'),
+                    2
+                );
 
             case 'customer':
-                if ($row->customer_id == $type_id) {
+                if (in_array($row->customer_id, $type_ids)) {
                     return 'Rs. ' . number_format($row->total_invoice_amount ?? 0, 2);
                 }
+                break;
 
             case 'gate_pass':
-
-                if ($row->gate_pass_id == $type_id) {
+                if (in_array($row->gate_pass_id, $type_ids)) {
                     return 'Rs. ' . number_format($row->details->sum('gate_pass_amount') ?? 0, 2);
                 }
-                return 'Rs. 0.00';
+                break;
 
             case 'clearing_agent':
-                if ($row->clearing_agent_id == $type_id) {
+                if (in_array($row->clearing_agent_id, $type_ids)) {
                     return 'Rs. ' . number_format($row->details->sum('clearing_agent_amount') ?? 0, 2);
                 }
-                return 'Rs. 0.00';
-
-            default:
-                return 'Rs. 0.00';
+                break;
         }
+
+        return 'Rs. 0.00';
     }
 }
 
@@ -150,47 +181,73 @@ if (!function_exists('getTotalAmount')) {
 if (!function_exists('getTotalAmountWithOutCurrency')) {
     function getTotalAmountWithOutCurrency($row, $type, $type_id, $details)
     {
+        // Normalize to an array of ints
+        $type_ids = is_array($type_id) ? $type_id : [$type_id];
+        $type_ids = collect($type_ids)
+            ->filter(fn ($v) => $v !== null && $v !== '')
+            ->map(fn ($v) => (int) $v)
+            ->values()
+            ->all();
+
+        if (empty($type_ids)) {
+            return '0.00';
+        }
+
         switch ($type) {
-            case 'broker':
-                $filtered = $details->where('broker_id', $type_id);
-                return number_format($filtered->sum('booker_vhicle_freight_amount') + $filtered->sum('booker_mt_charges_amount'), 2);
+            case 'broker': {
+                $filtered = $details->whereIn('broker_id', $type_ids);
+                $sum = ($filtered->sum('booker_vhicle_freight_amount') ?? 0)
+                     + ($filtered->sum('booker_mt_charges_amount') ?? 0);
+                return number_format($sum, 2);
+            }
 
-            case 'labour':
+            case 'labour': {
+                $sum = $details->whereIn('labour_charges_id', $type_ids)->sum('labour_charges_amount');
+                return number_format($sum, 2);
+            }
 
-                $filtered = $details->where('labour_charges_id', $type_id);
-                return number_format($filtered->sum('labour_charges_amount'), 2);
+            case 'local': {
+                $sum = $details->whereIn('local_charges_id', $type_ids)->sum('local_charges_amount');
+                return number_format($sum, 2);
+            }
 
-            case 'local':
-                return number_format($details->where('local_charges_id', $type_id)->sum('local_charges_amount'), 2);
+            case 'lifter': {
+                $sum = $details->whereIn('lifter_charges_id', $type_ids)->sum('lifter_charges_amount');
+                return number_format($sum, 2);
+            }
 
-            case 'lifter':
-                return number_format($details->where('lifter_charges_id', $type_id)->sum('lifter_charges_amount'), 2);
+            case 'other': {
+                $sum = $details->whereIn('other_charges_id', $type_ids)->sum('other_charges_amount');
+                return number_format($sum, 2);
+            }
 
-            case 'other':
-                return number_format($details->where('other_charges_id', $type_id)->sum('other_charges_amount'), 2);
+            case 'party_commission': {
+                $sum = $details->whereIn('party_commission_charges_id', $type_ids)->sum('party_commision_charges_amount');
+                return number_format($sum, 2);
+            }
 
-            case 'party_commission':
-                return number_format($details->where('party_commission_charges_id', $type_id)->sum('party_commision_charges_amount'), 2);
+            case 'tracker': {
+                $sum = $details->whereIn('tracker_charges_id', $type_ids)->sum('tracker_charges_amount');
+                return number_format($sum, 2);
+            }
 
-            case 'tracker':
-                return number_format($details->where('tracker_charges_id', $type_id)->sum('tracker_charges_amount'), 2);
+            case 'customer': {
+                $ok = in_array((int) $row->customer_id, $type_ids, true);
+                $sum = $ok ? ($row->total_invoice_amount ?? 0) : 0;
+                return number_format($sum, 2);
+            }
 
-            case 'customer':
-                if ($row->customer_id == $type_id) {
-                    return number_format($row->total_invoice_amount ?? 0, 2);
-                }
-            case 'gate_pass':
+            case 'gate_pass': {
+                $ok = in_array((int) $row->gate_pass_id, $type_ids, true);
+                $sum = $ok ? ($row->details->sum('gate_pass_amount') ?? 0) : 0;
+                return number_format($sum, 2);
+            }
 
-                if ($row->gate_pass_id == $type_id) {
-                    return number_format($row->details->sum('gate_pass_amount') ?? 0, 2);
-                }
-                return '0.00';
-
-            case 'clearing_agent':
-                if ($row->clearing_agent_id == $type_id) {
-                    return number_format($row->details->sum('clearing_agent_amount') ?? 0, 2);
-                }
-                return '0.00';
+            case 'clearing_agent': {
+                $ok = in_array((int) $row->clearing_agent_id, $type_ids, true);
+                $sum = $ok ? ($row->details->sum('clearing_agent_amount') ?? 0) : 0;
+                return number_format($sum, 2);
+            }
 
             default:
                 return '0.00';
@@ -198,68 +255,83 @@ if (!function_exists('getTotalAmountWithOutCurrency')) {
     }
 }
 
-
 if (!function_exists('getPaidAmount')) {
     function getPaidAmount($row, $type, $type_id, $ledger)
     {
+        // Normalize type_id to an array of integers
+        $type_ids = is_array($type_id) ? $type_id : [$type_id];
+        $type_ids = collect($type_ids)
+            ->filter(fn ($v) => $v !== null && $v !== '')
+            ->map(fn ($v) => (int) $v)
+            ->values()
+            ->all();
 
-        $paid = 0;
-        if ($ledger == 'payable') {
-
-            $paid = DB::table('transactions')
-                ->where('payment_type', 'debit')
-                ->where('model_id', $type_id)
-                ->where('model_type', getModalNames($type))
-                ->where('shipping_id', $row->id)
-                ->sum('amount');
-        } elseif ($ledger == 'receivable') {
-
-
-            $paid = DB::table('transactions')
-                ->where('payment_type', 'credit')
-                ->where('model_id', $type_id)
-                ->where('model_type', getModalNames($type))
-                ->where('shipping_id', $row->id)
-                ->sum('amount');
+        if (empty($type_ids)) {
+            return '0.00';
         }
 
+        // Build query for paid amount
+        $query = DB::table('transactions')
+            ->whereIn('model_id', $type_ids)
+            ->where('model_type', getModalNames($type))
+            ->where('shipping_id', $row->id);
 
-        $total_amount = getTotalAmountWithOutCurrency($row, $type, $type_id, $row->details);
-        $total_amount = str_replace(',', '', $total_amount); // Remove commas for calculation
-        $paid = $total_amount - $paid;
+        if ($ledger === 'payable') {
+            $query->where('payment_type', 'debit');
+        } elseif ($ledger === 'receivable') {
+            $query->where('payment_type', 'credit');
+        } else {
+            return '0.00';
+        }
 
+        $paid = $query->sum('amount');
 
-        return number_format($paid, 2);
+        // Get total amount without currency
+        $total_amount = getTotalAmountWithOutCurrency($row, $type, $type_ids, $row->details);
+        $total_amount = (float) str_replace(',', '', $total_amount); // remove commas
+
+        // Remaining balance
+        $remaining = $total_amount - $paid;
+
+        return number_format($remaining, 2);
     }
 }
+
+
+
+
 if (!function_exists('getCondition')) {
-    function getCondition($row, $type, $type_id)
+    function getCondition($row, $type, $type_ids)
     {
         $firstDetail = $row->details->first();
+        $type_ids = collect($type_ids)->map(fn($id) => (int) $id);
 
         if ($type == 'customer') {
-            return $row->customer_id == $type_id;
+            return $type_ids->contains($row->customer_id);
         } elseif ($type == 'broker') {
-            return $firstDetail && $firstDetail->broker_id == $type_id;
+            return $firstDetail && $type_ids->contains($firstDetail->broker_id);
         } elseif ($type == 'gate_pass') {
-            return $row->gate_pass_id == $type_id;
+            return $type_ids->contains($row->gate_pass_id);
         } elseif ($type == 'clearing_agent') {
-            return $row->clearing_agent_id == $type_id;
+            return $type_ids->contains($row->clearing_agent_id);
         } elseif ($type == 'labour') {
-            return $firstDetail && $firstDetail->labour_charges_id == $type_id;
+            return $firstDetail && $type_ids->contains($firstDetail->labour_charges_id);
         } elseif ($type == 'local') {
-            return $firstDetail && $firstDetail->local_charges_id == $type_id;
+            return $firstDetail && $type_ids->contains($firstDetail->local_charges_id);
         } elseif ($type == 'lifter') {
-            return $firstDetail && $firstDetail->lifter_charges_id == $type_id;
+            return $firstDetail && $type_ids->contains($firstDetail->lifter_charges_id);
         } elseif ($type == 'other') {
-            return $firstDetail && $firstDetail->other_charges_id == $type_id;
+            return $firstDetail && $type_ids->contains($firstDetail->other_charges_id);
         } elseif ($type == 'party_commission') {
-            return $firstDetail && $firstDetail->party_commission_charges_id == $type_id;
+            return $firstDetail && $type_ids->contains($firstDetail->party_commission_charges_id);
         } elseif ($type == 'tracker') {
-            return $firstDetail && $firstDetail->tracker_charges_id == $type_id;
+            return $firstDetail && $type_ids->contains($firstDetail->tracker_charges_id);
         }
+
+        return false;
     }
 }
+
 
 
 
