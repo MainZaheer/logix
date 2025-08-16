@@ -37,7 +37,7 @@
   <script src="{{ asset('admin/plugins/toastr/toastr.min.js') }}"></script>
   <script>
     @if(session('success'))
-        toastr.success("{{ session('success') }}");
+        toastr.info("{{ session('success') }}");
     @endif
 
     @if(session('error'))

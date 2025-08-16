@@ -64,6 +64,11 @@
 
 @section('script')
     <script>
+
+    @if(session('success'))
+        toastr.success("{{ session('success') }}");
+    @endif
+
         $(function() {
             let start = moment().startOf('month');
             let end = moment().endOf('month');
