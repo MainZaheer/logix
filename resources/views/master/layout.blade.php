@@ -5,16 +5,17 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="description" content="@yield('meta_description', 'Logistics Management System')">
+    <meta name="author" content="@yield('meta_author', 'Logistics Team')">
+    <meta name="keywords" content="@yield('meta_keywords', 'logistics, management, system , accounting , expense , customer')">
+    <link rel="icon" href="{{ asset('admin/dist/img/favicon.svg') }}" type="image/x-icon" />
 
     <title>Logistics | @yield('title')</title>
 
-    <!-- Google Font: Source Sans Pro -->
-    {{-- <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback"> --}}
     <link rel="stylesheet" href="{{ asset('admin/fonts/fonts.css') }}">
     <!-- Font Awesome -->
     <link rel="stylesheet" href="{{ asset('admin/plugins/fontawesome-free/css/all.min.css') }}">
     <!-- Ionicons -->
-    {{-- <link rel="stylesheet" href="https://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css"> --}}
     <link rel="stylesheet" href="{{ asset('admin/fonts/ionicons.min.css') }} ">
 
     <link rel="stylesheet" href="{{ asset('admin/plugins/sweetalert2-theme-bootstrap-4/bootstrap-4.min.css') }}">
@@ -55,26 +56,12 @@
 <body class="hold-transition sidebar-mini layout-fixed">
     <div class="wrapper">
 
-        <!-- Navbar -->
         @include('master.navbar')
-        <!-- /.navbar -->
-
-        <!-- Main Sidebar Container -->
         @include('master.sidebar')
 
-        <!-- Content Wrapper. Contains page content -->
         <div class="content-wrapper">
-
-            <!-- Main content -->
-            {{-- <section class="content"> --}}
                 @yield('content')
-            {{-- </section> --}}
-            <!-- /.content -->
         </div>
-        <!-- /.content-wrapper -->
-
-        {{-- @include('master.footer') --}}
-
 
         <!-- Control Sidebar -->
         <aside class="control-sidebar control-sidebar-dark">
